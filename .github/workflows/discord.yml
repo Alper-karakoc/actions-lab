@@ -1,17 +1,34 @@
 name: Meddela Discord
 on:
-  push:
+  pull_request: 
     branches: [ main ]
+    
 jobs:
   notis:
     runs-on: ubuntu-latest
-    steps:
-      - name: Skicka meddelande
+    steps: 
+      - name: Checka ut koden
+        uses: actions/checkout@v4
+
+      - name: Hämta commit-meddelande
+        id: commit
+        run: echo "message=$(git log -1 --pretty=%B)" >> "$GITHUB_OUTPUT"
+
+      - name: Kör kontroll
+        run: exit 0
+
+      - name: Lyckad-notis
+        if: success()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          VEM: ${{ github.actor }}
-          REPO: ${{ github.repository }}
-        run: |
-          curl -X POST -H "Content-Type: application/json" \
-            -d "{\"content\": \"$VEM pushade till $REPO\"}" \
-            "$WEBHOOK"
+          TITEL: ${{ github.event.pull_request.title }}
+          COMMIT: ${{ steps.commit.outputs.message }}
+          run: curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"✅ $TITEL - $COMMIT\"}" "$WEBHOOK"    
+
+      - name: Misslyckad-notis
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          TITEL: ${{ github.event.pull_request.title }}
+          COMMIT: ${{ steps.commit.outputs.message }}
+          run: curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"❌ $TITEL – $COMMIT\"}" "$WEBHOOK"
